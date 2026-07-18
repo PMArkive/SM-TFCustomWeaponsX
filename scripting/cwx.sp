@@ -145,17 +145,6 @@ public void OnPluginStart() {
 					CookieAccess_Private);
 		}
 	}
-	
-	for (int i = 1; i <= MaxClients; i++) {
-		if (!IsClientConnected(i)) {
-			continue;
-		}
-		OnClientConnected(i);
-		
-		if (IsClientAuthorized(i)) {
-			FetchLoadoutItems(i);
-		}
-	}
 }
 
 public void OnAllPluginsLoaded() {
@@ -169,6 +158,17 @@ public void OnMapStart() {
 	LoadCustomItemConfig();
 	
 	PrecacheMenuResources();
+	
+	for (int i = 1; i <= MaxClients; i++) {
+		if (!IsClientConnected(i)) {
+			continue;
+		}
+		OnClientConnected(i);
+		
+		if (IsClientAuthorized(i)) {
+			FetchLoadoutItems(i);
+		}
+	}
 }
 
 /**
@@ -202,8 +202,26 @@ void FetchLoadoutItems(int client) {
 public void OnClientCookiesCached(int client) {
 	for (int c; c < NUM_PLAYER_CLASSES; c++) {
 		for (int i; i < NUM_ITEMS; i++) {
-			g_ItemPersistCookies[c][i].Get(client, g_CurrentLoadout[client][c][i].uid,
-					sizeof(g_CurrentLoadout[][][].uid));
+			char uid[MAX_ITEM_IDENTIFIER_LENGTH];
+			g_ItemPersistCookies[c][i].Get(client, uid, sizeof(uid));
+			if (uid[0] == '\0') {
+				continue;
+			}
+			
+			// load into the runtime loadout iff item is valid and used for slot
+			bool valid = true;
+			CustomItemDefinition item;
+			if (!GetCustomItemDefinition(uid, item)) {
+				valid = false;
+			} else if (item.loadoutPosition[c] != i) {
+				valid = false;
+			}
+			
+			if (valid) {
+				strcopy(g_CurrentLoadout[client][c][i].uid, sizeof(g_CurrentLoadout[][][].uid), uid);
+			} else {
+				g_ItemPersistCookies[c][i].Set(client, "");
+			}
 		}
 	}
 	g_bRetrievedLoadout[client] = true;
